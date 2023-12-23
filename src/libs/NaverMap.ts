@@ -25,14 +25,55 @@ class NaverMap {
 
                     this.map = new naver.maps.Map('map', mapOptions);
                     this.map.addListener('init', async () => {
+                        this.getMapTileInfo();
                         const result = await this.drawImage();
                         resolve(result);
+                    });
+                    this.map.addListener('idle', async () => {
+                        this.getMapTileInfo();
                     });
                 }
             );
         });
     }
+    tileInfo: TileInfo[] = [];
+    private async getMapTileInfo() {
+        if (!this.map) return null;
+        // console.log(
+        //     this.map.getElement().children[0]?.children[0]?.children[0]
+        // );
+        const images = this.map.getElement().querySelectorAll('img');
 
+        const mapImages = _.filter(images, (img: HTMLImageElement) => {
+            return img.width == MAP_IMAGE_SIZE;
+        });
+        if (mapImages.length === 0) return null;
+
+        this.tileInfo = _.map(mapImages, (img: HTMLImageElement) => {
+            const {
+                offsetTop,
+                offsetLeft,
+                offsetWidth = 0,
+                offsetHeight = 0
+            } = img.parentElement ?? {
+                offsetTop: 0,
+                offsetLeft: 0,
+                width: MAP_IMAGE_SIZE,
+                height: MAP_IMAGE_SIZE
+            };
+            return {
+                src: img.src,
+                x: offsetLeft,
+                y: offsetTop,
+                width: offsetWidth,
+                height: offsetHeight
+            };
+        });
+
+        this.tileInfo.sort((a, b) => {
+            return a.x - b.x || a.y - b.y;
+        });
+    }
     private async drawImage(): Promise<ResultInfo> {
         const mapInfo = this.calcImageInfo();
         if (!mapInfo) return Promise.reject();
@@ -139,4 +180,12 @@ export interface MapInfo {
 export interface ResultInfo {
     mapInfo: MapInfo;
     imgCanvas: HTMLCanvasElement;
+}
+
+export interface TileInfo {
+    src: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
 }

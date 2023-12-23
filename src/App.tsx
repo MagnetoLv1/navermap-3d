@@ -12,7 +12,11 @@ function App() {
             const naverMap = new NaverMap();
             naverMap.init().then(async ({ mapInfo, imgCanvas }) => {
                 threeMapRef.current?.setMap(naverMap?.map);
-                threeMapRef.current?.setMapPlane(imgCanvas, mapInfo);
+                threeMapRef.current?.setMapPlane(
+                    imgCanvas,
+                    mapInfo,
+                    naverMap.tileInfo
+                );
             });
         }
 

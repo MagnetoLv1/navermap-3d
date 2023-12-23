@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { MapInfo } from './NaverMap';
+import { MapInfo, TileInfo } from './NaverMap';
 import mathUtil from '../utils/mathUtil';
 
 const BACKGROUND_COLOR = '#e4e2de';
@@ -24,6 +24,7 @@ class ThreeMap {
     targetDiv: HTMLDivElement;
     plane: THREE.Mesh | null = null;
     map: naver.maps.Map | null = null;
+    bufferGeometry: THREE.BufferGeometry;
 
     constructor(targetDiv: HTMLDivElement) {
         this.targetDiv = targetDiv;
@@ -50,6 +51,12 @@ class ThreeMap {
         );
         this.camera.position.z = CAMERA_Z_POS;
         this.camera.position.y = CAMERA_Z_POS;
+
+        // 초기 BufferGeometry를 생성합니다.
+        this.bufferGeometry = new THREE.BufferGeometry();
+        const material = new THREE.MeshBasicMaterial();
+        const mesh = new THREE.Mesh(this.bufferGeometry, material);
+        this._objectGroup.add(mesh);
 
         this.orbitControls = new OrbitControls(
             this.camera,
@@ -92,38 +99,76 @@ class ThreeMap {
         }
     }
 
-    setMapPlane(imgCanvas: HTMLCanvasElement, mapInfo: MapInfo) {
+    setMapPlane(
+        imgCanvas: HTMLCanvasElement,
+        mapInfo: MapInfo,
+        titleInfos: Array<TileInfo>
+    ) {
         if (this.plane) {
             this._objectGroup.remove(this.plane);
             this.plane.geometry.dispose();
             this.plane = null;
         }
-        // 이미지 너비가 그려질 영역의 너비보다 어느 정도 큰지의 비율
-        const imgWidth = imgCanvas.width / this.pixelRatio;
-        const imgHeight = imgCanvas.height / this.pixelRatio;
 
-        const texture = new THREE.CanvasTexture(imgCanvas);
-        texture.minFilter = THREE.NearestFilter; // mip 을 생성하지 않도록 함 (mipmap 생성 시 resize 및 불필요한 메모리 사용 이슈 제거를 위함)
-        const material = new THREE.MeshBasicMaterial({
-            map: texture,
-            color: 0xffffff
+        const textureLoader = new THREE.TextureLoader();
+
+        const baseMaterial = new THREE.MeshBasicMaterial();
+        // 기존에 생성한 메시와 재질
+        let mesh: THREE.Mesh;
+        console.log('titleInfo', titleInfos);
+        // 평면 메시 생성
+
+        titleInfos.forEach((tileInfo) => {
+            const texture = textureLoader.load(tileInfo.src);
+            const material = new THREE.MeshBasicMaterial({
+                map: texture
+            });
+
+            // 메시가 없는 경우에는 새로 생성합니다.
+            // 평면 지오메트리를 생성합니다.
+            const geometry = new THREE.PlaneGeometry(
+                tileInfo.width,
+                tileInfo.height
+            );
+
+            // 메시를 생성하여 재질을 적용합니다.
+            mesh = new THREE.Mesh(geometry, material);
+
+            // 씬에 메시를 추가합니다.
+            this._objectGroup.add(mesh);
+
+            // 타일의 좌표에 메시를 배치합니다.
+            mesh.position.set(tileInfo.x, -tileInfo.y, 0);
         });
 
-        const geometry = new THREE.PlaneGeometry(imgWidth, imgHeight);
-        texture.dispose(); // Material 사용 후 바로 필요 없어짐
+        // 이미지 너비가 그려질 영역의 너비보다 어느 정도 큰지의 비율t
+        // const imgWidth = imgCanvas.width / this.pixelRatio;
+        // const imgHeight = imgCanvas.height / this.pixelRatio;
 
-        this.plane = new THREE.Mesh(geometry, material);
-        this.plane.castShadow = false;
-        this.plane.receiveShadow = true;
-        this._objectGroup.add(this.plane);
+        // THREE.BufferGeometry;
 
-        const leftCorrection =
-            Math.abs(mapInfo.left) - (imgWidth - this.canvasWidth) / 2;
-        const topCorrection =
-            Math.abs(mapInfo.top) - (imgHeight - this.canvasHeight) / 2;
+        // const texture = new THREE.CanvasTexture(imgCanvas);
+        // texture.minFilter = THREE.NearestFilter; // mip 을 생성하지 않도록 함 (mipmap 생성 시 resize 및 불필요한 메모리 사용 이슈 제거를 위함)
+        // const material = new THREE.MeshBasicMaterial({
+        //     map: texture,
+        //     color: 0xffffff
+        // });
 
-        this.plane.position.x = -leftCorrection;
-        this.plane.position.y = +topCorrection;
+        // const geometry = new THREE.PlaneGeometry(imgWidth, imgHeight);
+        // texture.dispose(); // Material 사용 후 바로 필요 없어짐
+
+        // this.plane = new THREE.Mesh(geometry, material);
+        // this.plane.castShadow = false;
+        // this.plane.receiveShadow = true;
+        // this._objectGroup.add(this.plane);
+
+        // const leftCorrection =
+        //     Math.abs(mapInfo.left) - (imgWidth - this.canvasWidth) / 2;
+        // const topCorrection =
+        //     Math.abs(mapInfo.top) - (imgHeight - this.canvasHeight) / 2;
+
+        // this.plane.position.x = -leftCorrection;
+        // this.plane.position.y = +topCorrection;
     }
 
     _initOrbitControls() {
