@@ -112,7 +112,6 @@ class ThreeMap {
 
         const textureLoader = new THREE.TextureLoader();
 
-        const baseMaterial = new THREE.MeshBasicMaterial();
         // 기존에 생성한 메시와 재질
         let mesh: THREE.Mesh;
         console.log('titleInfo', titleInfos);
@@ -188,13 +187,18 @@ class ThreeMap {
             // NaverMap 좌표로 변환
             const projection = this.map?.getProjection();
             if (projection) {
-                const mapPoint = new naver.maps.Point(x, y);
+                const mapPoint = new naver.maps.Point(-x, -y);
+
                 const mapCoord = projection.fromOffsetToCoord(mapPoint);
                 console.log(
                     'NaverMap Coordinates:',
+
                     mapCoord,
-                    this.map?.getCenter()
+                    this.map?.getCenter(),
+
+                    mapCoord
                 );
+                this.map?.setCenter(mapCoord);
             }
         });
     }
