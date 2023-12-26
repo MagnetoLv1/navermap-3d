@@ -10,13 +10,9 @@ function App() {
         if (viewRef.current && !threeMapRef.current) {
             threeMapRef.current = new ThreeMap(viewRef.current);
             const naverMap = new NaverMap();
-            naverMap.init().then(async ({ mapInfo, imgCanvas }) => {
+            naverMap.init().then(async () => {
                 threeMapRef.current?.setMap(naverMap?.map);
-                threeMapRef.current?.setMapPlane(
-                    imgCanvas,
-                    mapInfo,
-                    naverMap.tileInfo
-                );
+                threeMapRef.current?.setMapPlane(naverMap.tileInfo);
             });
         }
 

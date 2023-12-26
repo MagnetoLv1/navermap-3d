@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { MapInfo, TileInfo } from './NaverMap';
+import { TileInfo } from './NaverMap';
 import mathUtil from '../utils/mathUtil';
 
 const BACKGROUND_COLOR = '#e4e2de';
 const CAMERA_Z_POS = 300;
 const CONTROL_MIN_DISTANCE = 100;
-const CONTROL_MAX_DISTANCE = 700;
+const CONTROL_MAX_DISTANCE = 1700;
 /**
  * 컨트롤 관련 상수
  */
@@ -20,7 +20,7 @@ class ThreeMap {
     pixelRatio = window.devicePixelRatio;
     canvasWidth: number;
     canvasHeight: number;
-    orbitControls: OrbitControls;
+    controls: OrbitControls;
     targetDiv: HTMLDivElement;
     plane: THREE.Mesh | null = null;
     map: naver.maps.Map | null = null;
@@ -51,14 +51,13 @@ class ThreeMap {
         );
         this.camera.position.z = CAMERA_Z_POS;
         this.camera.position.y = CAMERA_Z_POS;
-
         // 초기 BufferGeometry를 생성합니다.
         this.bufferGeometry = new THREE.BufferGeometry();
         const material = new THREE.MeshBasicMaterial();
         const mesh = new THREE.Mesh(this.bufferGeometry, material);
         this._objectGroup.add(mesh);
 
-        this.orbitControls = new OrbitControls(
+        this.controls = new OrbitControls(
             this.camera,
             this.renderer.domElement
         );
@@ -70,7 +69,7 @@ class ThreeMap {
 
     _init() {
         this.resize();
-        this._initOrbitControls();
+        this._initControls();
         this._animate();
         this.setAngle(90);
     }
@@ -82,7 +81,7 @@ class ThreeMap {
         }
 
         window.requestAnimationFrame(this._animate);
-        this.orbitControls.update();
+        this.controls.update();
         this.renderer.render(this.scene, this.camera);
     };
     /**
@@ -99,11 +98,7 @@ class ThreeMap {
         }
     }
 
-    setMapPlane(
-        imgCanvas: HTMLCanvasElement,
-        mapInfo: MapInfo,
-        titleInfos: Array<TileInfo>
-    ) {
+    setMapPlane(titleInfos: Array<TileInfo>) {
         if (this.plane) {
             this._objectGroup.remove(this.plane);
             this.plane.geometry.dispose();
@@ -137,67 +132,56 @@ class ThreeMap {
             this._objectGroup.add(mesh);
 
             // 타일의 좌표에 메시를 배치합니다.
-            mesh.position.set(tileInfo.x, -tileInfo.y, 0);
+            mesh.position.set(
+                tileInfo.x + tileInfo.width / 2,
+                -tileInfo.y - tileInfo.height / 2,
+                0
+            );
         });
 
-        // 이미지 너비가 그려질 영역의 너비보다 어느 정도 큰지의 비율t
-        // const imgWidth = imgCanvas.width / this.pixelRatio;
-        // const imgHeight = imgCanvas.height / this.pixelRatio;
-
-        // THREE.BufferGeometry;
-
-        // const texture = new THREE.CanvasTexture(imgCanvas);
-        // texture.minFilter = THREE.NearestFilter; // mip 을 생성하지 않도록 함 (mipmap 생성 시 resize 및 불필요한 메모리 사용 이슈 제거를 위함)
-        // const material = new THREE.MeshBasicMaterial({
-        //     map: texture,
-        //     color: 0xffffff
-        // });
-
-        // const geometry = new THREE.PlaneGeometry(imgWidth, imgHeight);
-        // texture.dispose(); // Material 사용 후 바로 필요 없어짐
-
-        // this.plane = new THREE.Mesh(geometry, material);
-        // this.plane.castShadow = false;
-        // this.plane.receiveShadow = true;
-        // this._objectGroup.add(this.plane);
-
-        // const leftCorrection =
-        //     Math.abs(mapInfo.left) - (imgWidth - this.canvasWidth) / 2;
-        // const topCorrection =
-        //     Math.abs(mapInfo.top) - (imgHeight - this.canvasHeight) / 2;
-
-        // this.plane.position.x = -leftCorrection;
-        // this.plane.position.y = +topCorrection;
+        // 카메라는 센데 위치로 변경
+        const { offsetWidth, offsetHeight } = this.map?.getElement() ?? {
+            offsetWidth: 0,
+            offsetHeight: 0
+        };
+        this.controls.target.set(offsetWidth / 2, 0, offsetHeight / 2);
+        this.camera.position.x = offsetWidth / 2;
+        this.camera.position.z = CAMERA_Z_POS + offsetHeight / 2;
+        this.camera.position.y = CAMERA_Z_POS;
     }
 
-    _initOrbitControls() {
-        this.orbitControls.minPolarAngle = mathUtil.toRadian(CONTROL_MIN_POLAR);
-        this.orbitControls.maxPolarAngle = mathUtil.toRadian(CONTROL_MAX_POLAR);
-        this.orbitControls.minDistance = CONTROL_MIN_DISTANCE;
-        this.orbitControls.maxDistance = CONTROL_MAX_DISTANCE;
-        this.orbitControls.addEventListener('change', () => {
-            const vector3 = new THREE.Vector3();
-            // 카메라의 3D 좌표를 2D 좌표로 변환
-            const vector = vector3.project(this.camera);
+    _initControls() {
+        this.controls.minPolarAngle = mathUtil.toRadian(CONTROL_MIN_POLAR);
+        this.controls.maxPolarAngle = mathUtil.toRadian(CONTROL_MAX_POLAR);
+        this.controls.minDistance = CONTROL_MIN_DISTANCE;
+        this.controls.maxDistance = CONTROL_MAX_DISTANCE;
+        this.controls.addEventListener('end', () => {
+            // 현재 카메라의 위치
+            const cameraPosition = new THREE.Vector3();
+            this.camera.getWorldPosition(cameraPosition);
 
-            // 변환된 2D 좌표 출력 ( -1에서 1이라면, 0.5를 곱하고 0.5를 더해 0에서 1로 변환)
-            const x = (vector.x * 0.5 + 0.5) * this.canvasWidth;
-            const y = (vector.y * -0.5 + 0.5) * this.canvasHeight;
+            // 현재 target의 위치
+            const targetPosition = this.controls.target.clone();
+
+            // 카메라와 target 사이의 벡터
+            const vectorBetweenCameraAndTarget =
+                targetPosition.sub(cameraPosition);
+
+            // y 값이 0이 되는 지점의 좌표
+            const t = -cameraPosition.y / vectorBetweenCameraAndTarget.y;
+            const intersectionPoint = new THREE.Vector3()
+                .copy(cameraPosition)
+                .add(vectorBetweenCameraAndTarget.multiplyScalar(t));
 
             // NaverMap 좌표로 변환
             const projection = this.map?.getProjection();
             if (projection) {
-                const mapPoint = new naver.maps.Point(-x, -y);
+                const mapPoint = new naver.maps.Point(
+                    intersectionPoint.x,
+                    intersectionPoint.z
+                );
 
                 const mapCoord = projection.fromOffsetToCoord(mapPoint);
-                console.log(
-                    'NaverMap Coordinates:',
-
-                    mapCoord,
-                    this.map?.getCenter(),
-
-                    mapCoord
-                );
                 this.map?.setCenter(mapCoord);
             }
         });

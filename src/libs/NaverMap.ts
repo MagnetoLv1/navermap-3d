@@ -7,7 +7,7 @@ class NaverMap {
     map: naver.maps.Map | null = null;
     imgCanvas: HTMLCanvasElement | null = null;
     constructor() {}
-    async init(): Promise<ResultInfo> {
+    async init(): Promise<void> {
         return new Promise((resolve, reject) => {
             if (this.map) {
                 reject();
@@ -26,11 +26,12 @@ class NaverMap {
                     this.map = new naver.maps.Map('map', mapOptions);
                     this.map.addListener('init', async () => {
                         this.getMapTileInfo();
-                        const result = await this.drawImage();
-                        resolve(result);
+                        await this.drawImage();
+                        resolve();
                     });
                     this.map.addListener('idle', async () => {
-                        this.getMapTileInfo();
+                        console.log('idle');
+                        //this.getMapTileInfo();
                     });
                 }
             );
