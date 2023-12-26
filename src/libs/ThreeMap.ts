@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TileInfo } from './NaverMap';
 import mathUtil from '../utils/mathUtil';
+import * as dat from 'lil-gui';
 
 const BACKGROUND_COLOR = '#e4e2de';
 const CAMERA_Z_POS = 300;
@@ -26,12 +27,26 @@ class ThreeMap {
     map: naver.maps.Map | null = null;
     bufferGeometry: THREE.BufferGeometry;
 
+    //---gui---//
+    gui: dat.GUI;
+
     constructor(targetDiv: HTMLDivElement) {
+        this.gui = new dat.GUI();
+        this.gui.close();
+
         this.targetDiv = targetDiv;
         this.canvasWidth = this.targetDiv.offsetWidth;
         this.canvasHeight = this.targetDiv.offsetHeight;
 
         this.scene = new THREE.Scene();
+
+        // 격자를 표시하는 헬퍼
+        const gridHelper = new THREE.GridHelper(256 * 6, 6, 0x0000ff, 0x808080);
+        this.scene.add(gridHelper);
+
+        //x, y, z 축을 표시하는 축 헬퍼
+        const axesHelper = new THREE.AxesHelper(256 * 6);
+        this.scene.add(axesHelper);
 
         this._objectGroup = new THREE.Group();
         this.scene.add(this._objectGroup);
@@ -51,6 +66,10 @@ class ThreeMap {
         );
         this.camera.position.z = CAMERA_Z_POS;
         this.camera.position.y = CAMERA_Z_POS;
+
+        const helper = new THREE.CameraHelper(this.camera);
+        this.scene.add(helper);
+
         // 초기 BufferGeometry를 생성합니다.
         this.bufferGeometry = new THREE.BufferGeometry();
         const material = new THREE.MeshBasicMaterial();
@@ -62,6 +81,10 @@ class ThreeMap {
             this.renderer.domElement
         );
         this._init();
+
+        // add gui
+        this.gui.add(gridHelper, 'visible').name('GridHelper');
+        this.gui.add(axesHelper, 'visible').name('AxesHelper');
     }
     setMap(map: naver.maps.Map | null) {
         this.map = map;
@@ -115,7 +138,8 @@ class ThreeMap {
         titleInfos.forEach((tileInfo) => {
             const texture = textureLoader.load(tileInfo.src);
             const material = new THREE.MeshBasicMaterial({
-                map: texture
+                map: texture,
+                wireframe: false
             });
 
             // 메시가 없는 경우에는 새로 생성합니다.
