@@ -1,13 +1,17 @@
 import load from 'load-script';
 import _ from 'lodash';
-import device from '../utils/device';
 
+type onTilesChangeType = (tiles: Array<TileInfo>) => void;
+type onInitType = () => void;
 const MAP_IMAGE_SIZE = 256;
 class NaverMap {
     map: naver.maps.Map | null = null;
     imgCanvas: HTMLCanvasElement | null = null;
-    constructor() {}
-    async init(): Promise<void> {
+    _handleInit: onInitType | null = null;
+    _handleTilesChage: onTilesChangeType | null = null;
+    tileInfo: MapTileInfo = new Map();
+
+    public async load(): Promise<void> {
         return new Promise((resolve, reject) => {
             if (this.map) {
                 reject();
@@ -24,33 +28,34 @@ class NaverMap {
                     };
 
                     this.map = new naver.maps.Map('map', mapOptions);
-                    this.map.addListener('init', async () => {
-                        this.getMapTileInfo();
-                        await this.drawImage();
-                        resolve();
-                    });
-                    this.map.addListener('idle', async () => {
-                        console.log('idle');
-                        //this.getMapTileInfo();
-                    });
+                    this.map.addListener('init', this.initHandler.bind(this));
+                    this.map.addListener(
+                        'tilesloaded',
+                        this.tilesChangeHandler.bind(this)
+                    );
+                    resolve();
                 }
             );
         });
     }
-    tileInfo: TileInfo[] = [];
+
+    private initHandler() {
+        this._handleInit?.();
+    }
+    private async tilesChangeHandler() {
+        const tileInfo = await this.getMapTileInfo();
+        this._handleTilesChage?.(tileInfo);
+    }
     private async getMapTileInfo() {
-        if (!this.map) return null;
-        // console.log(
-        //     this.map.getElement().children[0]?.children[0]?.children[0]
-        // );
+        if (!this.map) return [];
         const images = this.map.getElement().querySelectorAll('img');
 
         const mapImages = _.filter(images, (img: HTMLImageElement) => {
             return img.width == MAP_IMAGE_SIZE;
         });
-        if (mapImages.length === 0) return null;
+        if (mapImages.length === 0) return [];
 
-        this.tileInfo = _.map(mapImages, (img: HTMLImageElement) => {
+        return _.map(mapImages, (img: HTMLImageElement) => {
             const {
                 offsetTop,
                 offsetLeft,
@@ -62,6 +67,7 @@ class NaverMap {
                 width: MAP_IMAGE_SIZE,
                 height: MAP_IMAGE_SIZE
             };
+
             return {
                 src: img.src,
                 x: offsetLeft,
@@ -70,95 +76,30 @@ class NaverMap {
                 height: offsetHeight
             };
         });
-
-        this.tileInfo.sort((a, b) => {
-            return a.x - b.x || a.y - b.y;
-        });
     }
-    private async drawImage(): Promise<ResultInfo> {
-        const mapInfo = this.calcImageInfo();
-        if (!mapInfo) return Promise.reject();
 
-        this.imgCanvas = document.createElement('canvas');
-        const ctx = this.imgCanvas.getContext('2d')!;
-        // pixel ratio
-        const ratio = device.getPixelRatio(ctx);
-        ctx.imageSmoothingEnabled = true;
-
-        // TODO: 크기 정보는 이미지 크기로부터 구하는 걸로
-        this.imgCanvas.width = MAP_IMAGE_SIZE * 3 * ratio;
-        this.imgCanvas.height = MAP_IMAGE_SIZE * 3 * ratio;
-        ctx.scale(ratio, ratio);
-        await Promise.all(
-            _.map(mapInfo?.imageInfos, async (info: ImageInfo) => {
-                const image = await this.loadImage(info.img);
-                ctx.drawImage(image, info.x, info.y, info.width, info.height);
-            })
-        );
-        return {
-            mapInfo,
-            imgCanvas: this.imgCanvas
+    public onInit(handle: onInitType) {
+        this._handleInit = handle;
+    }
+    public onTilesChange(handle: onTilesChangeType) {
+        this._handleTilesChage = handle;
+    }
+    public getCenter() {
+        const { offsetWidth, offsetHeight } = this.map?.getElement() ?? {
+            offsetWidth: 0,
+            offsetHeight: 0
         };
+        return new naver.maps.Point(offsetWidth / 2, offsetHeight / 2);
     }
+    public setCenter(x: number, y: number) {
+        // NaverMap 좌표로 변환
+        const projection = this.map?.getProjection();
+        if (projection) {
+            const mapPoint = new naver.maps.Point(x, y);
 
-    private calcImageInfo(): MapInfo | null {
-        if (!this.map) return null;
-        const images = this.map.getElement().querySelectorAll('img');
-
-        const mapImages = _.filter(images, (img: HTMLImageElement) => {
-            return img.width == MAP_IMAGE_SIZE;
-        });
-        if (mapImages.length === 0) return null;
-
-        const top =
-            _.minBy(mapImages, (img: HTMLImageElement) => {
-                return img.parentElement?.offsetTop;
-            })?.parentElement?.offsetTop ?? 0;
-
-        const left =
-            _.minBy(mapImages, (img: HTMLImageElement) => {
-                return img.parentElement?.offsetLeft;
-            })?.parentElement?.offsetLeft ?? 0;
-
-        const imageInfos = _.map(mapImages, (img: HTMLImageElement) => {
-            const {
-                offsetTop,
-                offsetLeft,
-                offsetWidth = 0,
-                offsetHeight = 0
-            } = img.parentElement ?? {
-                offsetTop: 0,
-                offsetLeft: 0,
-                width: MAP_IMAGE_SIZE,
-                height: MAP_IMAGE_SIZE
-            };
-            return {
-                img,
-                x: offsetLeft - left,
-                y: offsetTop - top,
-                width: offsetWidth,
-                height: offsetHeight
-            };
-        });
-        return {
-            left,
-            top,
-            imageInfos
-        };
-    }
-
-    private loadImage(img: HTMLImageElement) {
-        return new Promise<HTMLImageElement>((resolve, reject) => {
-            const image = new Image();
-            image.crossOrigin = 'Anonymous';
-            image.src = img.src;
-            image.onload = () => {
-                resolve(image);
-            };
-            image.onerror = (e) => {
-                reject(e);
-            };
-        });
+            const mapCoord = projection.fromOffsetToCoord(mapPoint);
+            this.map?.setCenter(mapCoord);
+        }
     }
 }
 
@@ -181,12 +122,4 @@ export interface MapInfo {
 export interface ResultInfo {
     mapInfo: MapInfo;
     imgCanvas: HTMLCanvasElement;
-}
-
-export interface TileInfo {
-    src: string;
-    x: number;
-    y: number;
-    width: number;
-    height: number;
 }

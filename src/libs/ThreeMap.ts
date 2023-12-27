@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { TileInfo } from './NaverMap';
+import NaverMap from './NaverMap';
 import mathUtil from '../utils/mathUtil';
 import * as dat from 'lil-gui';
 
@@ -29,10 +29,18 @@ class ThreeMap {
 
     //---gui---//
     gui: dat.GUI;
+    naverMap: NaverMap;
+
+    tileInfo: MapTileInfo = new Map();
 
     constructor(targetDiv: HTMLDivElement) {
         this.gui = new dat.GUI();
         this.gui.close();
+
+        this.naverMap = new NaverMap();
+        this.naverMap.onInit(this.mapInitHandler.bind(this));
+        this.naverMap.onTilesChange(this.tilesChangeHandler.bind(this));
+        this.naverMap.load();
 
         this.targetDiv = targetDiv;
         this.canvasWidth = this.targetDiv.offsetWidth;
@@ -86,8 +94,17 @@ class ThreeMap {
         this.gui.add(gridHelper, 'visible').name('GridHelper');
         this.gui.add(axesHelper, 'visible').name('AxesHelper');
     }
-    setMap(map: naver.maps.Map | null) {
-        this.map = map;
+
+    mapInitHandler() {
+        // 카메라는 센데 위치로 변경
+        const { x, y } = this.naverMap.getCenter();
+        this.controls.target.set(x, 0, y);
+        this.camera.position.x = x;
+        this.camera.position.z = CAMERA_Z_POS + y;
+        this.camera.position.y = CAMERA_Z_POS;
+    }
+    tilesChangeHandler(tileInfo: Array<TileInfo>) {
+        this.setMapPlane(tileInfo);
     }
 
     _init() {
@@ -128,14 +145,23 @@ class ThreeMap {
             this.plane = null;
         }
 
+        // Compare keys in the first map
+
+        const newTileInfo: Array<TileInfo> = [];
+        titleInfos.forEach((tileInfo) => {
+            if (!this.tileInfo.has(tileInfo.src)) {
+                newTileInfo.push(tileInfo);
+            }
+            this.tileInfo.set(tileInfo.src, tileInfo);
+        });
+
         const textureLoader = new THREE.TextureLoader();
 
         // 기존에 생성한 메시와 재질
         let mesh: THREE.Mesh;
-        console.log('titleInfo', titleInfos);
         // 평면 메시 생성
 
-        titleInfos.forEach((tileInfo) => {
+        newTileInfo.forEach((tileInfo) => {
             const texture = textureLoader.load(tileInfo.src);
             const material = new THREE.MeshBasicMaterial({
                 map: texture,
@@ -162,16 +188,6 @@ class ThreeMap {
                 0
             );
         });
-
-        // 카메라는 센데 위치로 변경
-        const { offsetWidth, offsetHeight } = this.map?.getElement() ?? {
-            offsetWidth: 0,
-            offsetHeight: 0
-        };
-        this.controls.target.set(offsetWidth / 2, 0, offsetHeight / 2);
-        this.camera.position.x = offsetWidth / 2;
-        this.camera.position.z = CAMERA_Z_POS + offsetHeight / 2;
-        this.camera.position.y = CAMERA_Z_POS;
     }
 
     _initControls() {
@@ -198,16 +214,7 @@ class ThreeMap {
                 .add(vectorBetweenCameraAndTarget.multiplyScalar(t));
 
             // NaverMap 좌표로 변환
-            const projection = this.map?.getProjection();
-            if (projection) {
-                const mapPoint = new naver.maps.Point(
-                    intersectionPoint.x,
-                    intersectionPoint.z
-                );
-
-                const mapCoord = projection.fromOffsetToCoord(mapPoint);
-                this.map?.setCenter(mapCoord);
-            }
+            this.naverMap.setCenter(intersectionPoint.x, intersectionPoint.z);
         });
     }
 
