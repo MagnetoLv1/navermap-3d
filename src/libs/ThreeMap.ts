@@ -14,20 +14,15 @@ const CONTROL_MAX_DISTANCE = 1700;
 const CONTROL_MIN_POLAR = 0; // 꼭대기
 const CONTROL_MAX_POLAR = 60; // 지평선에서 30도 위 지점
 class ThreeMap {
-    scene: THREE.Scene;
-    _objectGroup: THREE.Group;
-    renderer: THREE.WebGLRenderer;
     camera: THREE.PerspectiveCamera;
+    renderer: THREE.WebGLRenderer;
+    scene: THREE.Scene;
+    group: THREE.Group;
     pixelRatio = window.devicePixelRatio;
     canvasWidth: number;
     canvasHeight: number;
     controls: OrbitControls;
     targetDiv: HTMLDivElement;
-    plane: THREE.Mesh | null = null;
-    map: naver.maps.Map | null = null;
-    bufferGeometry: THREE.BufferGeometry;
-
-    //---gui---//
     gui: dat.GUI;
     naverMap: NaverMap;
 
@@ -38,7 +33,7 @@ class ThreeMap {
         this.gui.close();
 
         this.naverMap = new NaverMap();
-        this.naverMap.onInit(this.mapInitHandler.bind(this));
+        this.naverMap.onInit(this.naverMapInitHandler.bind(this));
         this.naverMap.onTilesChange(this.tilesChangeHandler.bind(this));
         this.naverMap.load();
 
@@ -48,16 +43,9 @@ class ThreeMap {
 
         this.scene = new THREE.Scene();
 
-        // 격자를 표시하는 헬퍼
-        const gridHelper = new THREE.GridHelper(256 * 6, 6, 0x0000ff, 0x808080);
-        this.scene.add(gridHelper);
-
-        //x, y, z 축을 표시하는 축 헬퍼
-        const axesHelper = new THREE.AxesHelper(256 * 6);
-        this.scene.add(axesHelper);
-
-        this._objectGroup = new THREE.Group();
-        this.scene.add(this._objectGroup);
+        this.group = new THREE.Group();
+        this.group.rotation.x = mathUtil.toRadian(-90);
+        this.scene.add(this.group);
 
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
         this.renderer.shadowMap.enabled = true;
@@ -75,27 +63,37 @@ class ThreeMap {
         this.camera.position.z = CAMERA_Z_POS;
         this.camera.position.y = CAMERA_Z_POS;
 
-        const helper = new THREE.CameraHelper(this.camera);
-        this.scene.add(helper);
-
-        // 초기 BufferGeometry를 생성합니다.
-        this.bufferGeometry = new THREE.BufferGeometry();
-        const material = new THREE.MeshBasicMaterial();
-        const mesh = new THREE.Mesh(this.bufferGeometry, material);
-        this._objectGroup.add(mesh);
-
         this.controls = new OrbitControls(
             this.camera,
             this.renderer.domElement
         );
-        this._init();
-
-        // add gui
-        this.gui.add(gridHelper, 'visible').name('GridHelper');
-        this.gui.add(axesHelper, 'visible').name('AxesHelper');
+        this.init();
     }
 
-    mapInitHandler() {
+    private init() {
+        this.resize();
+        this.initControls();
+        this.initHelper();
+        this.animate();
+    }
+    private initHelper() {
+        // 격자를 표시하는 헬퍼
+        const gridHelper = new THREE.GridHelper(256 * 6, 6, 0x0000ff, 0x808080);
+        this.scene.add(gridHelper);
+
+        //x, y, z 축을 표시하는 축 헬퍼
+        const axesHelper = new THREE.AxesHelper(256 * 6);
+        this.scene.add(axesHelper);
+
+        const cameraHelper = new THREE.CameraHelper(this.camera);
+        this.scene.add(cameraHelper);
+        // add gui
+        this.gui.add(gridHelper, 'visible').name('Grid');
+        this.gui.add(axesHelper, 'visible').name('Axes');
+        this.gui.add(cameraHelper, 'visible').name('camera');
+    }
+
+    naverMapInitHandler() {
         // 카메라는 센데 위치로 변경
         const { x, y } = this.naverMap.getCenter();
         this.controls.target.set(x, 0, y);
@@ -107,27 +105,19 @@ class ThreeMap {
         this.setMapPlane(tileInfo);
     }
 
-    _init() {
-        this.resize();
-        this._initControls();
-        this._animate();
-        this.setAngle(90);
-    }
-
-    _animate = () => {
+    private animate = () => {
         if (!this.renderer) {
-            // Renderer 가 해제된 상태이므로 loop 를 지속하지 않는다.
             return;
         }
 
-        window.requestAnimationFrame(this._animate);
+        window.requestAnimationFrame(this.animate);
         this.controls.update();
         this.renderer.render(this.scene, this.camera);
     };
     /**
      * 캔버스의 크기를 Wrapper 의 크기에 맞춘다.
      */
-    resize() {
+    private resize() {
         const targetDiv = this.targetDiv;
 
         this.canvasWidth = targetDiv.offsetWidth;
@@ -138,13 +128,7 @@ class ThreeMap {
         }
     }
 
-    setMapPlane(titleInfos: Array<TileInfo>) {
-        if (this.plane) {
-            this._objectGroup.remove(this.plane);
-            this.plane.geometry.dispose();
-            this.plane = null;
-        }
-
+    private setMapPlane(titleInfos: Array<TileInfo>) {
         // Compare keys in the first map
 
         const newTileInfo: Array<TileInfo> = [];
@@ -179,7 +163,7 @@ class ThreeMap {
             mesh = new THREE.Mesh(geometry, material);
 
             // 씬에 메시를 추가합니다.
-            this._objectGroup.add(mesh);
+            this.group.add(mesh);
 
             // 타일의 좌표에 메시를 배치합니다.
             mesh.position.set(
@@ -190,7 +174,7 @@ class ThreeMap {
         });
     }
 
-    _initControls() {
+    private initControls() {
         this.controls.minPolarAngle = mathUtil.toRadian(CONTROL_MIN_POLAR);
         this.controls.maxPolarAngle = mathUtil.toRadian(CONTROL_MAX_POLAR);
         this.controls.minDistance = CONTROL_MIN_DISTANCE;
@@ -218,12 +202,8 @@ class ThreeMap {
         });
     }
 
-    destroy() {
+    public destroy() {
         this.targetDiv.removeChild(this.renderer.domElement);
-    }
-
-    setAngle(angle: number) {
-        this._objectGroup.rotation.x = mathUtil.toRadian(-angle);
     }
 }
 export default ThreeMap;
