@@ -1,5 +1,42 @@
 #root {
-    max-width: 1280px;
     margin: 0 auto;
     padding: 0;
+}
+
+.canvasview {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+#map {
+    position: absolute;
+    width: 355px;
+    height: 355px;
+    left: 10px;
+    top: 10px;
+    z-index: 2;
+    border: 1px solid #000;
+    &:before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 50%;
+        height: 100%;
+        z-index: 3;
+        border-right: 0.5px solid #333;
+    }
+    &:after {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 50%;
+        z-index: 3;
+        border-bottom: 0.5px solid #333;
+    }
 }

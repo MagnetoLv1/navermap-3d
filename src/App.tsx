@@ -20,21 +20,8 @@ function App() {
 
     return (
         <>
-            <div
-                id="map"
-                style={{
-                    width: 355,
-                    height: 355
-                }}
-            ></div>
-            <div
-                ref={viewRef}
-                className="canvasview"
-                style={{
-                    width: 710,
-                    height: 710
-                }}
-            ></div>
+            <div id="map"></div>
+            <div ref={viewRef} className="canvasview"></div>
         </>
     );
 }

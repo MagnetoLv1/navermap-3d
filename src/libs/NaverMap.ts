@@ -24,7 +24,14 @@ class NaverMap {
                 () => {
                     const mapOptions = {
                         center: new naver.maps.LatLng(37.345546, 127.0904539),
-                        zoom: 17
+                        zoom: 17,
+                        draggable: false,
+                        pinchZoom: false,
+                        scrollWheel: false,
+                        keyboardShortcuts: false,
+                        disableDoubleTapZoom: true,
+                        disableDoubleClickZoom: true,
+                        disableTwoFingerTapZoom: true
                     };
 
                     this.map = new naver.maps.Map('map', mapOptions);
