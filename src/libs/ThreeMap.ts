@@ -5,7 +5,7 @@ import mathUtil from '../utils/mathUtil';
 import * as dat from 'lil-gui';
 
 const BACKGROUND_COLOR = '#e4e2de';
-const CAMERA_Z_POS = 300;
+const CAMERA_Z_POS = 500;
 const CONTROL_MIN_DISTANCE = 100;
 const CONTROL_MAX_DISTANCE = 1700;
 /**
@@ -73,6 +73,7 @@ class ThreeMap {
     private init() {
         this.resize();
         this.initControls();
+        this.initKeyBoard();
         this.initHelper();
         this.animate();
     }
@@ -92,6 +93,31 @@ class ThreeMap {
         this.gui.add(gridHelper, 'visible').name('Grid');
         this.gui.add(axesHelper, 'visible').name('Axes');
         this.gui.add(cameraHelper, 'visible').name('Camera');
+    }
+
+    private initKeyBoard() {
+        document.addEventListener('keydown', (event) => {
+            switch (event.key) {
+                case 'ArrowUp':
+                    this.camera.position.z -= 50;
+                    this.controls.target.setZ(this.controls.target.z - 50);
+                    break;
+                case 'ArrowDown':
+                    this.camera.position.z += 50;
+                    this.controls.target.setZ(this.controls.target.z + 50);
+                    break;
+                case 'ArrowLeft':
+                    this.camera.position.x -= 50;
+                    this.controls.target.setX(this.controls.target.x - 50);
+                    break;
+                case 'ArrowRight':
+                    this.camera.position.x += 50;
+                    this.controls.target.setX(this.controls.target.x + 50);
+                    break;
+            }
+
+            this.setCenter();
+        });
     }
 
     naverMapInitHandler() {
@@ -181,26 +207,33 @@ class ThreeMap {
         this.controls.minDistance = CONTROL_MIN_DISTANCE;
         this.controls.maxDistance = CONTROL_MAX_DISTANCE;
         this.controls.addEventListener('end', () => {
-            // 현재 카메라의 위치
-            const cameraPosition = new THREE.Vector3();
-            this.camera.getWorldPosition(cameraPosition);
-
-            // 현재 target의 위치
-            const targetPosition = this.controls.target.clone();
-
-            // 카메라와 target 사이의 벡터
-            const vectorBetweenCameraAndTarget =
-                targetPosition.sub(cameraPosition);
-
-            // y 값이 0이 되는 지점의 좌표
-            const t = -cameraPosition.y / vectorBetweenCameraAndTarget.y;
-            const intersectionPoint = new THREE.Vector3()
-                .copy(cameraPosition)
-                .add(vectorBetweenCameraAndTarget.multiplyScalar(t));
-
-            // NaverMap 좌표로 변환
-            this.naverMap.setCenter(intersectionPoint.x, intersectionPoint.z);
+            this.setCenter();
         });
+    }
+
+    /**
+     * 카메라와 target 사이의 벡터를 구하여 y 값이 0이 되는 지점의 좌표를 구하여
+     * NaverMap의 setCenter 함수를 호출하여 카메라의 위치를 NaverMap의 중앙으로 맞춘다.
+     */
+    private setCenter() {
+        // 현재 카메라의 위치
+        const cameraPosition = new THREE.Vector3();
+        this.camera.getWorldPosition(cameraPosition);
+
+        // 현재 target의 위치
+        const targetPosition = this.controls.target.clone();
+
+        // 카메라와 target 사이의 벡터
+        const vectorBetweenCameraAndTarget = targetPosition.sub(cameraPosition);
+
+        // y 값이 0이 되는 지점의 좌표
+        const t = -cameraPosition.y / vectorBetweenCameraAndTarget.y;
+        const intersectionPoint = new THREE.Vector3()
+            .copy(cameraPosition)
+            .add(vectorBetweenCameraAndTarget.multiplyScalar(t));
+
+        // NaverMap 좌표로 변환
+        this.naverMap.setCenter(intersectionPoint.x, intersectionPoint.z);
     }
 
     public destroy() {

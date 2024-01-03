@@ -22,6 +22,11 @@ function App() {
         <>
             <div id="map"></div>
             <div ref={viewRef} className="canvasview"></div>
+            <div className="arrow">
+                ⬆️
+                <br />
+                ⬅️⬇️➡️
+            </div>
         </>
     );
 }
