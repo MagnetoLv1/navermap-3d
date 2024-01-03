@@ -88,9 +88,10 @@ class ThreeMap {
         const cameraHelper = new THREE.CameraHelper(this.camera);
         this.scene.add(cameraHelper);
         // add gui
+        this.gui.add(this.naverMap, 'visible').name('Naver Map');
         this.gui.add(gridHelper, 'visible').name('Grid');
         this.gui.add(axesHelper, 'visible').name('Axes');
-        this.gui.add(cameraHelper, 'visible').name('camera');
+        this.gui.add(cameraHelper, 'visible').name('Camera');
     }
 
     naverMapInitHandler() {

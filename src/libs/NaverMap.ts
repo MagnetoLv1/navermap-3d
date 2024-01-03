@@ -108,6 +108,26 @@ class NaverMap {
             this.map?.setCenter(mapCoord);
         }
     }
+
+    set visible(value: boolean) {
+        const elm = this.map?.getElement();
+        if (elm) {
+            if (value) {
+                elm.classList.remove('hide');
+            } else {
+                elm.classList.add('hide');
+            }
+        }
+    }
+
+    get visible() {
+        const elm = this.map?.getElement();
+        if (elm) {
+            return elm.classList.contains('hide') === false;
+        } else {
+            return true;
+        }
+    }
 }
 
 export default NaverMap;

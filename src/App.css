@@ -9,7 +9,7 @@
     top: 0;
     width: 100%;
     height: 100%;
-    z-index: 1;
+    z-index: 10;
 }
 #map {
     position: absolute;
@@ -17,7 +17,7 @@
     height: 355px;
     left: 10px;
     top: 10px;
-    z-index: 2;
+    z-index: 20;
     border: 1px solid #000;
     &:before {
         content: '';
@@ -38,5 +38,9 @@
         height: 50%;
         z-index: 3;
         border-bottom: 0.5px solid #333;
+    }
+    &.hide {
+        z-index: 1;
+        visibility: hidden;
     }
 }
