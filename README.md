@@ -1,30 +1,44 @@
-# React + TypeScript + Vite
+# NaverMap 3D
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+![React](https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB) ![Vite](https://img.shields.io/badge/vite-%23646CFF.svg?style=for-the-badge&logo=vite&logoColor=white) ![Three.js](https://img.shields.io/badge/Three.js-000000?style=for-the-badge&logo=three.js&logoColor=white)
+![NaverMap](https://img.shields.io/badge/Map-03C75A?style=for-the-badge&logo=Naver&logoColor=white)
 
-Currently, two official plugins are available:
+NaverMap 3D는 네이버맵을 3D로 구현한 예제입니다.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 주요 기능
 
-## Expanding the ESLint configuration
+-   네이버 맵 : 네이버 맵 API를 사용하여 맵 데이터를 로드합니다.
+-   텍스처 매핑: 네이버 맵의 이미지를 평면에 좌표에 맞게 텍스처로 입힙니다.
+-   카메라 이동: 키보드와 마우스를 이용하여 3D 환경 내의 카메라를 이동시킵니다.
+-   맵 이동: 이동된 카메라의 좌표를 이용하여 네이버 맵을 이동시킵니다.
+-   디버깅 툴: Three.js의 [Helper](https://threejs.org/docs/?q=helper#api/en/helpers/AxesHelper) 와 [lil-gui](https://lil-gui.georgealways.com/)를 이용하여 디버깅툴 추가
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+## 중요한 코드
 
-- Configure the top-level `parserOptions` property like this:
+네이버 맵의 중심 좌표를 구하는 코드는 다음과 같습니다. 이 코드는 카메라와 카메라가 보고 있는 target 사이의 맵(y=0)의 지점의 좌표를 계산합니다.
 
 ```js
-export default {
-  // other rules...
-  parserOptions: {
-    ecmaVersion: 'latest',
-    sourceType: 'module',
-    project: ['./tsconfig.json', './tsconfig.node.json'],
-    tsconfigRootDir: __dirname,
-  },
-}
+// 현재 카메라의 위치
+const cameraPosition = new THREE.Vector3();
+this.camera.getWorldPosition(cameraPosition);
+
+// 현재 target의 위치
+const targetPosition = this.controls.target.clone();
+
+// 카메라와 target 사이의 벡터
+const vectorBetweenCameraAndTarget = targetPosition.sub(cameraPosition);
+
+// y 값이 0이 되는 지점의 좌표
+const t = -cameraPosition.y / vectorBetweenCameraAndTarget.y;
+const intersectionPoint = new THREE.Vector3()
+    .copy(cameraPosition)
+    .add(vectorBetweenCameraAndTarget.multiplyScalar(t));
+
+// NaverMap 좌표로 변환
+this.naverMap.setCenter(intersectionPoint.x, intersectionPoint.z);
 ```
 
-- Replace `plugin:@typescript-eslint/recommended` to `plugin:@typescript-eslint/recommended-type-checked` or `plugin:@typescript-eslint/strict-type-checked`
-- Optionally add `plugin:@typescript-eslint/stylistic-type-checked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and add `plugin:react/recommended` & `plugin:react/jsx-runtime` to the `extends` list
+## 샘플
+
+http://navermap-3d.montents.com/
+![sample](./src/assets/sample.png)
